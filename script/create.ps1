@@ -45,18 +45,34 @@ function CreateDL {
                 Description = "`n Created at: " + $env:COMPUTERNAME + "`n Created by: " + $env:USERNAME + "`n Created on: "  + ($(Get-Date)) + "`n`n=========`n" + $c.Purpose
                 Members = ($c.Members) -split (',') #turm members to array
             }
-            #--output
             $counter++
-            Write-Host "`n------------------OUTPUT($counter)-------------------------"
-            foreach ($currentItemName in $(@("Name","DisplayName","PrimarySmtpAddress","Description","Members")) ) {
-                Write-Host "`n`n $($currentItemName):" -foregroundcolor Cyan
-                Write-Host "$($AssembledObj.$($currentItemName))"
-                
-            }
-            if ($($AssembledObj.Members).length -gt 0) {
+            #--m365
+            Write-Host "$(Get-Date -Format "HH:mm")[Debug]: Retreving object details"
+            $Result = GetDL -Identity $AssembledObj.PrimarySmtpAddress | select DisplayName,PrimarySmtpAddress,Alias,GroupType | fl | Out-string
+            
+            if ($Result) {
+                Write-Host "`n$(Get-Date -Format "HH:mm")[Debug]: Object already exist"
+                Write-Host "`n------------------OUTPUT($counter)-------------------------`n$Result"
+                [System.Windows.MessageBox]::Show("Object already exist `n$Result","$($json.ToolName) $($json.ToolVersion)",$OKButton,$WarningIcon)
                 
             }else{
-                Write-Host "No members found" -foregroundcolor Yellow
+                try{
+                    New-DistributionGroup -Name $AssembledObj.Name -PrimarySmtpAddress $AssembledObj.PrimarySmtpAddress -DisplayName $AssembledObj.DisplayName -Description $AssembledObj.Description | Out-Null
+                    Write-Host "`n$(Get-Date -Format "HH:mm")[Log]: Object creation success. Allowing 20 seconds replication"
+
+                    Start-Sleep -s 20
+                    #--output
+                    Write-Host "$(Get-Date -Format "HH:mm")[Debug]: Retreving object details"
+                    $Result = GetDL -Identity $AssembledObj.PrimarySmtpAddress | select DisplayName,PrimarySmtpAddress,Alias,GroupType | fl | Out-string
+
+                    Write-Host "`n$(Get-Date -Format "HH:mm")[Log]: Object replication success."
+                    Write-Host "`n------------------OUTPUT($counter)-------------------------`n$Result"
+                    [System.Windows.MessageBox]::Show("Object replication success. `n`n$Result","$($json.ToolName) $($json.ToolVersion)",$OKButton,$InfoIcon)
+                }catch{
+                    Write-Host "`n$(Get-Date -Format "HH:mm")[Error]: Object creation failed" 
+                    Get-Kill -Mode "Hard"
+                }
+                
             }
         }
         
