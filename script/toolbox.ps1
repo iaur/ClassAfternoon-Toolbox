@@ -2,7 +2,7 @@ try {
     #--init
     $global:ErrorActionPreference = "Stop"
     $global:RootPath = split-path -parent $MyInvocation.MyCommand.Definition
-    $global:json = Get-Content "$RootPath\config.json" -Raw | ConvertFrom-Json 
+    $global:json = Get-Content "$RootPath\deps\config.json" -Raw | ConvertFrom-Json 
     
     #---init>gui-util
         Add-Type -AssemblyName System.Windows.Forms,System.Drawing
@@ -13,8 +13,8 @@ try {
         $global:WarningIcon = [System.Windows.MessageBoxImage]::Warning
         $global:ErrorIcon = [System.Windows.MessageBoxImage]::Error
         $global:QButton = [System.Windows.MessageBoxImage]::Question
-        $objIcon = New-Object system.drawing.icon ("$RootPath\spider.ico")
-        $GifFile_CompBackground= (Get-Item -Path "$RootPath\loading.gif")
+        $objIcon = New-Object system.drawing.icon ("$RootPath\deps\spider.ico")
+        $GifFile_CompBackground= (Get-Item -Path "$RootPath\deps\loading.gif")
 
         function ShowScreen {
             param (
@@ -29,6 +29,9 @@ try {
                 $shpDivider.Hide()
                 $btnCreate.Hide()
                 $btnRead.Hide()
+                $lblReadMenu.Hide()
+                $txtReadMenu.Hide()
+                $btnReadMenuGo.Hide()
                 $btnUpdate.Hide()
                 $btnDelete.Hide()
             }elseif ($Control -eq "MainMenu") {
@@ -39,12 +42,43 @@ try {
                 $shpDivider.Show()
                 $btnCreate.Show()
                 $btnRead.Show()
+                $lblReadMenu.Hide()
+                $txtReadMenu.Hide()
+                $btnReadMenuGo.Hide()
                 $btnUpdate.Show()
                 $btnDelete.Show()
+            }
+            elseif ($Control -eq "ReadMenu") {
+                $btnCreate.Hide()
+                $btnRead.Hide()
+                $lblReadMenu.Show()
+                $txtReadMenu.Show()
+                $btnReadMenuGo.Show()
+                $btnUpdate.Hide()
+                $btnDelete.Hide()
             }
             else{}
             
         }
+
+        function SetToolMode {
+            param (
+                $Mode
+            )
+            If($Mode -eq "Enabled")
+            {
+                $btnCreate.enabled = $true
+                $btnRead.enabled = $true
+                $btnUpdate.enabled = $true
+                $btnDelete.enabled = $true
+            }else{
+                $btnCreate.enabled = $false
+                $btnRead.enabled = $false
+                $btnUpdate.enabled = $false
+                $btnDelete.enabled = $false
+            }
+        }
+
     
     function global:Get-Kill {
         param (
@@ -54,47 +88,37 @@ try {
             $e = $_.Exception.GetType().FullName
             $line = $_.InvocationInfo.ScriptLineNumber
             $msg = $_.Exception.Message
-            Write-Output "$(Get-Date -Format "HH:mm")[Error]: Initialization failed at line [$line] due [$e] `n`nwith details `n`n[$msg]`n"
-            Write-Output "`n`n------------------END ROOT-------------------------"
-            Stop-Transcript | Out-Null
+            Write-Output "$(Get-Date -Format "HH:mm")[Error]: Initialization failed at line [$line] due [$e] `n`nwith details `n`n[$msg]`n"   
             ClearCreateCSV
+            ClearUpdateCSV
             DisConEXO
+            Write-Output "`n------------------END ROOT-------------------------"
+            Stop-Transcript | Out-Null
             exit
         }else{
-            Write-Output "`n`n------------------END ROOT-------------------------"
-            Stop-Transcript | Out-Null
             ClearCreateCSV
+            ClearUpdateCSV
             DisConEXO
+            Write-Output "`n------------------END ROOT-------------------------"
+            Stop-Transcript | Out-Null
             exit
         }
         
     }
     
     function global:ClearCreateCSV {
-        Remove-Item -Path "$RootPath\create.csv"
-        New-Item $RootPath\create.csv -ItemType File | Out-Null
-        Set-Content $RootPath\create.csv 'Name,Purpose,Members'    
+        Remove-Item -Path "$RootPath\deps\create.csv"
+        New-Item $RootPath\deps\create.csv -ItemType File | Out-Null
+        Set-Content $RootPath\deps\create.csv 'Name,Purpose,Members' 
+        Write-Host "$(Get-Date -Format "HH:mm")[Log]: Create CSV cleared success"   
+    }
+    function global:ClearUpdateCSV {
+        Remove-Item -Path "$RootPath\deps\update.csv"
+        New-Item $RootPath\deps\update.csv -ItemType File | Out-Null
+        Set-Content $RootPath\deps\update.csv 'TargetDLSMTPAddress,PrimarySMTPAddress' 
+        Write-Host "$(Get-Date -Format "HH:mm")[Log]: Update CSV cleared success"   
     }
 
-    function SetToolMode {
-        param (
-            $Mode
-        )
-        If($Mode -eq "Enabled")
-        {
-            $btnCreate.enabled = $true
-            $btnRead.enabled = $true
-            $btnUpdate.enabled = $true
-            $btnDelete.enabled = $true
-        }else{
-            $btnCreate.enabled = $false
-            $btnRead.enabled = $false
-            $btnUpdate.enabled = $false
-            $btnDelete.enabled = $false
-        }
-    }
-
-    #---init>m365 Util
     function global:ConEXO {
 
         try {
@@ -132,12 +156,25 @@ try {
         return
         
     }
+    function global:GetDLMember {
+        param (
+            $Identity
+        )
+        try {
+            Get-DistributionGroupMember -Identity $Identity 
+        }
+        catch {
+        }
 
-    Start-Transcript -Path "$RootPath\Toolbox_localtime_$(Get-Date -Format "MMddyyyyHHmm").txt" | Out-Null
+        return
+        
+    }
+
+    Start-Transcript -Path "$RootPath\logs\Toolbox_localtime_$(Get-Date -Format "MMddyyyyHHmm").txt" | Out-Null
     
     Write-Output "`n`n------------------BEGIN ROOT-------------------------"
     Write-Output "$(Get-Date -Format "HH:mm")[Log]: Form init success"
-    
+
     $ConResult = [System.Windows.MessageBox]::Show("Do you want to connect to EXO?","$($json.ToolName) $($json.ToolVersion)",$YesNoButton,$QButton)
     
     If($ConResult -eq "Yes")
@@ -148,8 +185,6 @@ try {
         $EXOStatus = "(Offline)"
         Write-Host "$(Get-Date -Format "HH:mm")[Log]: EXO connection skipped"
     }
-
-
 
     #--form
     $IMG_CompBackground = [System.Drawing.Image]::fromfile($GifFile_CompBackground)
@@ -197,7 +232,7 @@ try {
         If ($cbxTOA.Checked -eq $true)
         {
             $json.ToolShowTOA = "False"
-            $json | ConvertTo-Json | Out-File "$RootPath\config.json"
+            $json | ConvertTo-Json | Out-File "$RootPath\deps\config.json"
         }else{}
 
         ShowScreen -Control "MainMenu"
@@ -225,9 +260,10 @@ try {
 
     $btnCreate.Add_Click({
         Write-Host "$(Get-Date -Format "HH:mm")[Log]: CREATE selected"
-        Import-Module "$RootPath\create.ps1" -Force
+        Import-Module "$RootPath\modu\create.ps1" -Force
         Write-Host "$(Get-Date -Format "HH:mm")[Log]: CREATE function imported"
         CreateDL
+        ClearCreateCSV
         Write-Host "`n`n$(Get-Date -Format "HH:mm")[Log]: CREATE function completed"
         [System.Windows.MessageBox]::Show("CREATE function completed","$($json.ToolName) $($json.ToolVersion)",$OKButton,$InfoIcon)
     })
@@ -239,6 +275,39 @@ try {
         BackColor = $json.ToolUIBtnColor
         Text = 'READ'      
     }
+    $lblReadMenu = New-Object System.Windows.Forms.Label -Property @{
+        Location = New-Object System.Drawing.Point(30,80)
+        Size = New-Object System.Drawing.Size(280,20)
+        Text = 'Please enter the email address in the space below:'      
+    }
+    $txtReadMenu = New-Object System.Windows.Forms.TextBox -Property @{
+        Location = New-Object System.Drawing.Point(30,110)
+        Size = New-Object System.Drawing.Size(260,20)     
+    }
+    $btnReadMenuGo = New-Object System.Windows.Forms.Button -Property @{
+        Location = New-Object System.Drawing.Point(30,150)
+        Size = New-Object System.Drawing.Size(125,50)
+        ForeColor = $json.ToolUILabelColor
+        BackColor = $json.ToolUIBtnColor
+        Text = 'GO'      
+    }
+
+    $btnRead.Add_Click({
+        $txtReadMenu.Text = ""
+        ShowScreen -Control "ReadMenu"
+        Write-Host "$(Get-Date -Format "HH:mm")[Log]: READ selected"
+    })
+
+    $btnReadMenuGo.Add_Click({
+        Import-Module "$RootPath\modu\read.ps1" -Force
+        Write-Host "$(Get-Date -Format "HH:mm")[Log]: READ function imported"
+        $global:Identity = $txtReadMenu.Text
+        ReadDL
+        Write-Host "`n`n$(Get-Date -Format "HH:mm")[Log]: READ function completed"
+        [System.Windows.MessageBox]::Show("READ function completed","$($json.ToolName) $($json.ToolVersion)",$OKButton,$InfoIcon)
+        ShowScreen -Control "MainMenu"
+    })
+
     $btnUpdate = New-Object System.Windows.Forms.Button -Property @{
         Location = New-Object System.Drawing.Point(30,140)
         Size = New-Object System.Drawing.Size(125,50)
@@ -246,6 +315,17 @@ try {
         BackColor = $json.ToolUIBtnColor
         Text = 'UPDATE'      
     }
+
+    $btnUpdate.Add_Click({
+        Write-Host "$(Get-Date -Format "HH:mm")[Log]: UPDATE selected"
+        Import-Module "$RootPath\modu\update.ps1" -Force
+        Write-Host "$(Get-Date -Format "HH:mm")[Log]: UPDATE function imported"
+        UpdateDL
+        ClearUpdateCSV
+        Write-Host "`n`n$(Get-Date -Format "HH:mm")[Log]: UPDATE function completed"
+        [System.Windows.MessageBox]::Show("UPDATE function completed","$($json.ToolName) $($json.ToolVersion)",$OKButton,$InfoIcon)
+    })
+
     $btnDelete = New-Object System.Windows.Forms.Button -Property @{
         Location = New-Object System.Drawing.Point(175,140)
         Size = New-Object System.Drawing.Size(125,50)
@@ -253,7 +333,7 @@ try {
         BackColor = $json.ToolUIBtnColor
         Text = 'DELETE'      
     }
-
+    
     If($ConResult -eq "Yes")
     {
         SetToolMode -Mode "Enabled"
@@ -261,16 +341,23 @@ try {
         SetToolMode -Mode "Disabled"
     }
 
-    #---form-render
+    #---form-render 
+
     $form.Controls.Add($lblTOA)
     $form.Controls.Add($btnStart) 
     $form.Controls.Add($cbxTOA) 
     $form.Controls.Add($shpDivider)
     $form.Controls.Add($lblMainMenu)
     $form.Controls.Add($btnCreate)
+
     $form.Controls.Add($btnRead)
+    $form.Controls.Add($lblReadMenu)
+    $form.Controls.Add($txtReadMenu)
+    $form.Controls.Add($btnReadMenuGo)
+
     $form.Controls.Add($btnUpdate)
-    $form.Controls.Add($btnDelete)
+    $form.Controls.Add($btnDelete) 
+
 
     If($json.ToolShowTOA -eq "True")
     {
@@ -282,7 +369,6 @@ try {
     $Gif_CompBackground.SendToBack()
     $form.ShowDialog() | Out-Null
     Write-Host "$(Get-Date -Format "HH:mm")[Log]: Form closed"
-    
     Get-Kill 
 }
 catch {

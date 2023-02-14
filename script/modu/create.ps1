@@ -5,7 +5,7 @@ function CreateDL {
         $counter = 0 
    
         function CheckCreateCSV {
-            $global:CreateCSV = Import-Csv -Path "$RootPath\create.csv"
+            $global:CreateCSV = Import-Csv -Path "$RootPath\deps\create.csv"
             if ($($CreateCSV.Name.Count) -gt 0) {
                 
             }else{
@@ -18,7 +18,7 @@ function CreateDL {
     
                 If($UpdateCSVResult -eq "Yes")
                 {
-                    Invoke-Item "$RootPath\create.csv"
+                    Invoke-Item "$RootPath\deps\create.csv"
                     Start-Sleep -s 15
                     Write-Host "`n$(Get-Date -Format "HH:mm")[Debug]: Checking again [create.csv]"
                     [System.Windows.MessageBox]::Show("Checking again [create.csv]","$($json.ToolName) $($json.ToolVersion)",$OKButton,$WarningIcon)
